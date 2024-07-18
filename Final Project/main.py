@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jul 16 00:52:10 2024
-
 @author: nikhith
 """
 
@@ -27,7 +25,6 @@ pd.set_option('max_columns', None)
 # Load dataset
 path = 'HDHI Admission data.csv'
 
-#data = pd.read_csv(path, encoding='latin-1', error_bad_lines=False, lineterminator='\n')
 data = pd.read_csv(path)
 
 print(data.head())
@@ -38,15 +35,7 @@ print(data.head())
 
 data.drop(columns = ['D.O.A', 'D.O.D'], inplace  = True)
 
-# Changes selected columns froms from string identifiers to binary identifiers
-    # M = 1, F = 0
-    # Rural = 0, Urban = 1
-    # Emergency = 1, Outpatient = 0
-
 le = LabelEncoder()
-#data['GENDER'] = le.fit_transform(data['GENDER'])
-#data['RURAL'] = le.fit_transform(data['RURAL'])
-#data['TYPE OF ADMISSION-EMERGENCY/OPD'] = le.fit_transform(data['TYPE OF ADMISSION-EMERGENCY/OPD'])
 
 # Fixing CSV Format Issues
 data = data.rename(columns={'SMOKING ': 'SMOKING'})
@@ -75,47 +64,69 @@ data.fillna(method='ffill', inplace=True)
 
 # DATA TRANSFORMATION
 
-# Feature Engineering
+#Grouping by age:
 data['age_group'] = pd.cut(data['AGE'], bins=[0, 18, 35, 50, 65, 100], labels=['0-18', '19-35', '36-50', '51-65', '65+'])
 
-# Normalization and Scaling
-scaler = StandardScaler()
-data[['AGE', 'DURATION OF STAY']] = scaler.fit_transform(data[['AGE', 'DURATION OF STAY']])
+#Grouping by Diabetes
+data['GLUCOSE'] = data['GLUCOSE'].replace('EMPTY', -1)
+data['GLUCOSE'] = data.GLUCOSE.astype(float)
+data['diabetic_classification'] = pd.cut(data['GLUCOSE'], bins=[-10, -1, 139, 190, 1000], labels=['Undetermined', 'Not Diabetic', 'Pre-Diabetic', 'Diabetic'])
+
 
 # Display transformed data
 print(data.head())
-
+data
 
 
 # EXPLORATORY DATA ANALYSIS
 
 # Visualize age groups with a specific disease
 plt.figure(figsize=(10, 6))
-sns.countplot(data=data, x='age_group', hue='disease')
-plt.title('Age Group Distribution by Disease')
+sns.countplot(data=data, x='age_group', hue='GLUCOSE')
+plt.title('Age Group Distribution by Glucose Levels')
 plt.xlabel('Age Group')
-plt.ylabel('Count')
+plt.ylabel('Glucose Level')
+plt.legend().set_visible(False)
+plt.show()
+
+#Visualize heart failure across age groups
+plt.figure(figsize=(10, 6))
+sns.countplot(data=data, x='age_group', hue='HEART FAILURE')
+plt.title('Age Group Distribution by Heart Failure')
+plt.xlabel('Age Group')
+plt.ylabel('Number of Patients with Heart Failure')
+plt.show()
+
+#Visualize diabetes across age groups
+plt.figure(figsize=(10, 6))
+sns.countplot(data=data, x='age_group', hue='diabetic_classification')
+plt.title('Diabetes Across Age Groups')
+plt.xlabel('Age Group')
+plt.ylabel('Number of Patients')
 plt.show()
 
 
 
 # PREDICTIVE MODELING
 
-# Prepare data for modeling
-X = data[['age', 'length_of_stay']]  # Features
-y = data['disease']  # Target variable
+# Preparing data for modeling
+data['HB'] = data['HB'].replace('EMPTY', -1)
+data['CREATININE'] = data['CREATININE'].replace('EMPTY', -1)
 
-# Split the data
+X = data[['AGE', 'HB', 'CREATININE']]  # Features
+y = data['diabetic_classification']  # Target variable
+
+# Spliting data
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-# Train the model
+# Training model
 model = RandomForestClassifier()
 model.fit(X_train, y_train)
 
-# Make predictions
+# Making predictions
 predictions = model.predict(X_test)
 
-# Evaluate the model
+# Model evaluatiion
 accuracy = accuracy_score(y_test, predictions)
 print(f'Accuracy: {accuracy * 100:.2f}%')
 
@@ -123,7 +134,6 @@ print(f'Accuracy: {accuracy * 100:.2f}%')
 
 # MODEL DEPLOYMENT
 
-# Save the model
 joblib.dump(model, 'model.pkl')
 
 app = Flask(__name__)
